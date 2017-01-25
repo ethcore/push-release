@@ -1,6 +1,6 @@
 [
 	{
-		"name": "psh-release",
+		"name": "push-release",
 		"script": "server.js",
 		"log_date_format": "YYYY-MM-DD HH:mm Z",
 		"merge_logs": false,
@@ -9,7 +9,11 @@
 		"exec_interpreter": "node",
 		"exec_mode": "fork_mode",
 		"env": {
-			"VERBOSITY": 2
+			"VERBOSITY": 2,
+      "OPERATIONS_CONTRACT_NAME": "parityoperations",
+      "ETH_ACCOUNT_ADDRESS": "0x0066AC7A4608f350BF9a0323D60dDe211Dfb27c0",
+      "ASSETS_BASE_URL": "http://d1h4xl4cr1h0mo.cloudfront.net",
+      "TOKEN_HASH": "ffa69b8d6bc6f7466e51ff21931295be5d5234dafc5f3ff034f68d59918744c4"
 		}
 	}
 ]

@@ -24,9 +24,12 @@ const enabled = {
     beta: true
 };
 
-const account = {address: '0x0066AC7A4608f350BF9a0323D60dDe211Dfb27c0', password: null};
-const baseUrl = 'http://d1h4xl4cr1h0mo.cloudfront.net';
-const tokenHash = 'ffa69b8d6bc6f7466e51ff21931295be5d5234dafc5f3ff034f68d59918744c4';
+const account = {
+  address: process.env.ETH_ACCOUNT_ADDRESS,
+  password: process.env.ETH_ACCOUNT_PASSWORD || null
+};
+const baseUrl = process.env.ASSETS_BASE_URL;
+const tokenHash = process.env.TOKEN_HASH;
 
 var network;
 api.parity.netChain().then(n => { network = (n == 'homestead' || n == 'mainnet' ? 'frontier' : n); });
@@ -86,7 +89,7 @@ app.post('/push-release/:branch/:commit', function (req, res) {
 					let semver = +version[0] * 65536 + +version[1] * 256 + +version[2];
 
 					api.parity.registryAddress().then(a =>
-						api.newContract(RegistrarABI, a).instance.getAddress.call({}, [api.util.sha3('parityoperations'), 'A'])
+						api.newContract(RegistrarABI, a).instance.getAddress.call({}, [api.util.sha3(process.env.OPERATIONS_CONTRACT_NAME), 'A'])
 					).then(a => {
 						console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${isCritical}`);
 						// Should be this...

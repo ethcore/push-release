@@ -147,7 +147,7 @@ app.post('/push-build/:branch/:platform', function (req, res) {
 	res.end(out);
 })
 
-var server = app.listen(1337, function () {
+var server = app.listen(process.env.HTTP_PORT, function () {
 	var host = server.address().address;
 	var port = server.address().port;
 	console.log("push-release service listening at http://%s:%s", host, port);

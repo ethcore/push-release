@@ -1,0 +1,13 @@
+{
+	"http": {
+		"port": "HTTP_PORT"
+	},
+	"rpc": {
+		"port": "RPC_PORT"
+	},
+	"account": {
+		"address": "ACCOUNT_ADDRESS",
+		"password": "ACCOUNT_PASSWORD"
+	},
+	"secretHash": "SECRET_HASH"
+}

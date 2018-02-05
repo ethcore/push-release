@@ -1,0 +1,13 @@
+{
+	"http": {
+		"port": "1338"
+	},
+	"rpc": {
+		"port": "8547"
+	},
+	"account": {
+		"address": "0x004E9a7d60af10f7A8866b868e36b86D4A9bA450",
+		"gasPrice": null
+	},
+	"enabledTracks": ["stable", "beta", "nightly", "master", "testing"]
+}

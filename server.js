@@ -1,17 +1,34 @@
 'use strict';
 
+const config = require('config');
+const request = require('request');
+const express = require('express');
+const bodyParser = require('body-parser');
+const keccak256 = require('js-sha3').keccak_256;
 const Parity = require('@parity/parity.js');
-const transport = new Parity.Api.Transport.Http('http://localhost:8545');
-const api = new Parity.Api(transport);
-var request = require('request');
-var express = require('express');
-var bodyParser = require('body-parser');
-var keccak256 = require('js-sha3').keccak_256;
 
-var app = express();
+const transport = new Parity.Api.Transport.Http(`http://localhost:${config.get('rpc.port')}`);
+const api = new Parity.Api(transport);
+
+const app = express();
 app.use(bodyParser.urlencoded({extended: true}));
 
-const githubRepo = 'paritytech/parity';
+const reduceObject = (obj, prop) => ({ ...obj, [prop]: true });
+const enabledTracks = config.get('enabledTracks').reduce(reduceObject, {});
+const supportedPlatforms = config.get('supportedPlatforms').reduce(reduceObject, {});
+
+const account = {
+	address: config.get('account.address'),
+	password: config.get('account.password'),
+	gasPrice: config.get('account.gasPrice')
+};
+
+const httpPort = config.get('http.port');
+const baseUrl = config.get('assetsBaseUrl');
+const secretHash = config.get('secretHash');
+const githubRepo = config.get('repository');
+const operationsContract = api.util.sha3('parityOperations');
+const githubHint = api.util.sha3('githubhint');
 
 const tracks = {
 	stable: 1,
@@ -21,19 +38,7 @@ const tracks = {
 	testing: 4
 };
 
-const enabled = {
-	stable: true,
-	beta: true
-};
-
-const account = {
-  address: process.env.ETH_ACCOUNT_ADDRESS,
-  password: process.env.ETH_ACCOUNT_PASSWORD || null
-};
-const baseUrl = process.env.ASSETS_BASE_URL;
-const tokenHash = process.env.TOKEN_HASH;
-
-var network;
+let network;
 api.parity.netChain().then(n => {
 	network = (n === 'homestead' || n === 'mainnet' || n === 'foundation' ? 'foundation' : n.indexOf('kovan.json') !== -1 ? 'kovan' : n);
 	console.log(`On network ${network}`);
@@ -41,18 +46,12 @@ api.parity.netChain().then(n => {
 	console.log('Error with RPC!', e);
 });
 
-const supportedPlatforms = {
-	'x86_64-apple-darwin': true,
-	'x86_64-pc-windows-msvc': true,
-	'x86_64-unknown-linux-gnu': true
-};
-
 function sendTransaction (abi, address, method, args) {
 	let o = api.newContract(abi, address);
 	let tx = {
 		from: account.address,
 		to: address,
-		gasPrice: '0x4F9ACA000',
+		gasPrice: account.gasPrice,
 		data: o.getCallData(o.instance[method], {}, args)
 	};
 	return account.password === null
@@ -70,19 +69,19 @@ function sendTransaction(abi, address, method, args) {
 }
 */
 app.post('/push-release/:tag/:commit', function (req, res) {
-	if (keccak256(req.body.secret) !== tokenHash) {
+	if (keccak256(req.body.secret) !== secretHash) {
 		res.end('Bad request.');
 		return;
 	}
 
-	console.log(`curl --data "secret=${req.body.secret} http://localhost:1338/push-release/${req.params.tag}/${req.params.commit}`);
+	console.log(`curl --data "secret=${req.body.secret}" http://localhost:${httpPort}/push-release/${req.params.tag}/${req.params.commit}`);
 
 	let commit = req.params.commit;
 	let tag = req.params.tag;
 	let isCritical = false; // TODO: should take from Git release notes for stable/beta.
 	let goodTag = (tag === 'nightly' || tag.startsWith('v'));
 
-	var out;
+	let out;
 	console.log(`Pushing commit: ${commit} (tag: ${tag}/${goodTag})`);
 
 	if (goodTag) {
@@ -90,9 +89,9 @@ app.post('/push-release/:tag/:commit', function (req, res) {
 			if (error) throw error;
 			let branch = body.match(`const THIS_TRACK. ..static str = "([a-z]*)";`)[1];
 			let track = tracks[branch] ? branch : 'testing';
-			console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${enabled[track]}]`);
+			console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${enabledTracks[track]}]`);
 
-			if (enabled[track]) {
+			if (enabledTracks[track]) {
 				request.get({headers: { 'User-Agent': githubRepo }, url: `https://raw.githubusercontent.com/${githubRepo}/${commit}/ethcore/src/ethereum/mod.rs`}, function (error, response, body) {
 					if (error) throw error;
 					let pattern = `pub const FORK_SUPPORTED_${network.toUpperCase()}: u64 = (\\d+);`;
@@ -115,10 +114,10 @@ app.post('/push-release/:tag/:commit', function (req, res) {
 
 						api.parity.registryAddress().then(a => {
 							console.log(`Registry address: ${a}`);
-							var registry = api.newContract(RegistrarABI, a);
+							let registry = api.newContract(RegistrarABI, a);
 							return registry.instance.getAddress.call(
 								{},
-								[api.util.sha3(process.env.OPERATIONS_CONTRACT_NAME), 'A']
+								[operationsContract, 'A']
 							);
 						}).then(a => {
 							console.log(`Parity operations address: ${a}`);
@@ -139,12 +138,12 @@ app.post('/push-release/:tag/:commit', function (req, res) {
 });
 
 app.post('/push-build/:tag/:platform', function (req, res) {
-	if (keccak256(req.body.secret) !== tokenHash) {
+	if (keccak256(req.body.secret) !== secretHash) {
 		res.end('Bad request.');
 		return;
 	}
 
-	console.log(`curl --data "secret=${req.body.secret}&commit=${req.body.commit}&filename=${req.body.filename}&sha3=${req.body.sha3} http://localhost:1338/push-build/${req.params.tag}/${req.params.platform}`);
+	console.log(`curl --data "secret=${req.body.secret}&commit=${req.body.commit}&filename=${req.body.filename}&sha3=${req.body.sha3}" http://localhost:${httpPort}/push-build/${req.params.tag}/${req.params.platform}`);
 
 	let tag = req.params.tag;
 	let platform = req.params.platform;
@@ -163,13 +162,13 @@ app.post('/push-build/:tag/:platform', function (req, res) {
 			if (error) throw error;
 			let branch = body.match(`const THIS_TRACK. ..static str = "([a-z]*)";`)[1];
 			let track = tracks[branch] ? branch : 'testing';
-			console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${!!enabled[track]}]`);
+			console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${!!enabledTracks[track]}]`);
 
-			if (enabled[track]) {
-				var reg;
+			if (enabledTracks[track]) {
+				let reg;
 				api.parity.registryAddress().then(a => {
 					reg = api.newContract(RegistrarABI, a);
-					return reg.instance.getAddress.call({}, [api.util.sha3('githubhint'), 'A']);
+					return reg.instance.getAddress.call({}, [githubHint, 'A']);
 				}).then(g => {
 					console.log(`Registering on GithubHint: ${sha3}, ${url}`);
 					// Should be this...
@@ -179,7 +178,7 @@ app.post('/push-build/:tag/:platform', function (req, res) {
 				}).then(h => {
 					console.log(`Transaction sent with hash: ${h}`);
 
-					return reg.instance.getAddress.call({}, [api.util.sha3('parityoperations'), 'A']);
+					return reg.instance.getAddress.call({}, [operationsContract, 'A']);
 				}).then(o => {
 					console.log(`Registering platform binary: ${commit}, ${platform}, ${sha3}`);
 					// Should be this...
@@ -195,9 +194,9 @@ app.post('/push-build/:tag/:platform', function (req, res) {
 	res.end(out);
 });
 
-var server = app.listen(process.env.HTTP_PORT, function () {
-	var host = server.address().address;
-	var port = server.address().port;
+const server = app.listen(httpPort, function () {
+	const host = server.address().address;
+	const port = server.address().port;
 	console.log('push-release service listening at http://%s:%s', host, port);
 });
 

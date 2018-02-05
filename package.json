@@ -5,7 +5,9 @@
   "author": "Parity Technologies <admin@parity.io>",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "npm run lint",
+    "lint": "semistandard"
   },
   "dependencies": {
     "@parity/parity.js": "^0.2.120",
@@ -13,5 +15,8 @@
     "express": "^4.13.3",
     "js-sha3": "^0.5.5",
     "request": "^2.79.0"
+  },
+  "devDependencies": {
+    "semistandard": "12.0.0"
   }
 }

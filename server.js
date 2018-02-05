@@ -49,6 +49,7 @@ function sendTransaction (abi, address, method, args) {
   let tx = {
     from: account.address,
     to: address,
+    gasPrice: '0x4F9ACA000',
     data: o.getCallData(o.instance[method], {}, args)
   };
   return account.password === null

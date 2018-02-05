@@ -26,9 +26,12 @@ const enabled = {
 	beta: true
 };
 
-const account = {address: '0x0066AC7A4608f350BF9a0323D60dDe211Dfb27c0', password: null};
-const baseUrl = 'http://d1h4xl4cr1h0mo.cloudfront.net';
-const tokenHash = 'ffa69b8d6bc6f7466e51ff21931295be5d5234dafc5f3ff034f68d59918744c4';
+const account = {
+  address: process.env.ETH_ACCOUNT_ADDRESS,
+  password: process.env.ETH_ACCOUNT_PASSWORD || null
+};
+const baseUrl = process.env.ASSETS_BASE_URL;
+const tokenHash = process.env.TOKEN_HASH;
 
 var network;
 api.parity.netChain().then(n => {
@@ -113,7 +116,10 @@ app.post('/push-release/:tag/:commit', function (req, res) {
 						api.parity.registryAddress().then(a => {
 							console.log(`Registry address: ${a}`);
 							var registry = api.newContract(RegistrarABI, a);
-							return registry.instance.getAddress.call({}, [api.util.sha3('parityoperations'), 'A']);
+							return registry.instance.getAddress.call(
+								{},
+								[api.util.sha3(process.env.OPERATIONS_CONTRACT_NAME), 'A']
+							);
 						}).then(a => {
 							console.log(`Parity operations address: ${a}`);
 							console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${isCritical}`);
@@ -189,7 +195,7 @@ app.post('/push-build/:tag/:platform', function (req, res) {
 	res.end(out);
 });
 
-var server = app.listen(1337, function () {
+var server = app.listen(process.env.HTTP_PORT, function () {
 	var host = server.address().address;
 	var port = server.address().port;
 	console.log('push-release service listening at http://%s:%s', host, port);

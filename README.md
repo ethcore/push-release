@@ -14,11 +14,19 @@ To ensure only valid updates are processed, all requests must provide an authent
 
 ### Options
 
-The file `server.js` has several `const` declared values at the top which are used as a crude configuration. They may be altered according to the deployment:
+The configuration is managed in `config` directory. [The `default.json`](config/default.json) file as the name suggested is used as a base configuration, every entry can
+be overwritten in env-specific config files (see [`kovan.json`](config/kovan.json) as an example). Feel free to add your override to that directory.
 
-- `account` The configuration for the account we use to post transactions. Should contain at most two keys: `address` and optionally `password`. If no password is supplied, it is assumed that the account is already unlocked.
-- `baseUrl` The URL for artifacts; it will be appended with branch, platform and the filename, separated by directory delimiters (`/`s).
-- `tokenHash` The hash of the secret. The pre-image to this hash must be provided by any requests.
+To load a specific config file run with `NODE_ENV` environment variable set to the name of the config file. E.g. `NODE_ENV="kovan" node server.js`
+will run the server using `kovan.json` settings.
+
+Some parameters can also be overridden by environment variables. See [`config/custom-environment-variables.json`])config/custom-environment-variables.json) for all possible options. Notable ones:
+
+- `ACCOUNT_ADDRESS` The address of the account used to send transactions
+- `ACCOUNT_PASSWORD` The password of the account. If no password is supplied, it is assumed that the account is already unlocked.
+- `HTTP_PORT` The HTTP port the service will be running on.
+- `RPC_PORT` The port of Parity's JSON-RPC HTTP interface.
+- `SECRET_HASH` The hash of the secret. The pre-image to this hash must be provided by any requests.
 
 ## Deployment
 
@@ -29,15 +37,14 @@ We assume you have a preselected _signing account_ and _secret token_. The _Oper
    sudo apt-get install build-essential checkinstall libssl-dev
    curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.0/install.sh | bash
    source ~/.bashrc
-   nvm install 6.5
-   nvm alias default node
-   npm install pm2 -g
+   nvm install stable
+   nvm alias default stable
+   npm install pm2 yarn -g
    ```
 
 10. Install `parity` on the host:
    ```
-   wget http://d1h4xl4cr1h0mo.cloudfront.net/v1.4.8/x86_64-unknown-linux-gnu/parity_1.4.8_amd64.deb
-   dpkg -i parity_1.4.8_amd64.deb
+   $ bash <(curl https://get.parity.io -kL)
    ```
 
 20. Set it up to run as a service:
@@ -52,7 +59,7 @@ We assume you have a preselected _signing account_ and _secret token_. The _Oper
 
 30. Clone `push-release` repository on the desired host:
    ```
-   git clone https://github.com/ethcore/push-release
+   git clone https://github.com/paritytech/push-release
    ```
 
 40. Navigate in to the directory of push-release:
@@ -60,22 +67,22 @@ We assume you have a preselected _signing account_ and _secret token_. The _Oper
    cd push-release
    ```
 
-50. Edit `server.js`:
-   - Change the line beginning `const tokenHash =` to reflect the hash of the _secret token_ you created earlier.
-   - Change the line beginning `const account =` to have the `address:` of your `signing account` you decided on earlier. If you are not `--unlock`ing the account when running `parity`, you'll also need to provide the account's `password:`.
-   - Change the line beginning `const baseUrl =` to reflect the base URL of your build artefact's server address.
+50. Edit `config/yournetwork.js` and run with `NODE_ENV=yournetwork` or supply environment variables:
+   - Set `SECRET_HASH` to reflect the hash of the _secret token_ you created earlier.
+   - Set `ACCOUNT_ADDRESS` to have the `address:` of your `signing account` you decided on earlier. If you are not `--unlock`ing the account when running `parity`, you'll also need to provide the `ACCOUNT_PASSWORD`.
+   - Set `ASSETS_BASE_URL` to reflect the base URL of your build artefact's server address.
 
 60. Install any required NPM modules:
    ```
-   npm install
+   yarn install
    ```
 
 70. Start the services:
    ```
    pm2 start --name parity ../run-parity.sh
-   pm2 start push-release.json
+   pm2 start push-release.json --only push-release
    ```
-   
+
 
 ## On-chain setup
 
@@ -87,7 +94,7 @@ Prior to setting up the server, it's important to deploy the contracts and have 
 
 20. Deploy the _Operations_ contract:
    - Contracts -> Develop Contract
-   - Paste contents of [_Operations_ contract](https://github.com/ethcore/contracts/blob/master/Operations.sol)
+   - Paste contents of [_Operations_ contract](https://github.com/paritytech/contracts/blob/master/Operations.sol)
    - Compile
    - Deploy (From Account: `master key`, Contract Name: Operations)
    - Create, provide password and wait until confirmed.
@@ -98,7 +105,7 @@ Prior to setting up the server, it's important to deploy the contracts and have 
    - Manage names -> name: _operations_, _reserve this name_ -> Reserve
    - Provide password and wait until confirmed
    - Manage entries of a name -> name: _operations_, _A - Ethereum address_, value: [_Operations_ contract's address] -> Save    - Provide password and wait until confirmed
-   
+
 35. Setting up Parity's _OperationsProxy_ contract:
 
 40. Create the _manual key_. This is the key which generally stays offline, but can be used to confirm stable and beta releases. Accounts -> New Account; write down the recovery phrase (and put it somewhere safe), and name the key _manual key_. Back up the new JSON file.
@@ -109,7 +116,7 @@ Prior to setting up the server, it's important to deploy the contracts and have 
 
 70. Deploy the Parity-specific _OperationsProxy_ contract:
    - Contracts -> Develop Contract
-   - Paste contents of [_OperationsProxy_ contract](https://github.com/ethcore/contracts/blob/master/OperationsProxy.sol)
+   - Paste contents of [_OperationsProxy_ contract](https://github.com/paritytech/contracts/blob/master/OperationsProxy.sol)
    - Compile
    - Deploy
       - From Account: _master key_
@@ -131,7 +138,7 @@ Prior to setting up the server, it's important to deploy the contracts and have 
    - Provide password and wait until confirmed
    - Manage entries of a name -> name: _parityoperations_, _A - Ethereum address_, value: [_OperationsProxy_ contract's address] -> Save
    - Provide password and wait until confirmed
-   
+
 90. Configure Parity's _OperationsProxy_ to be the maintainer of Parity client releases in `Operations`:
    - Contracts -> Operations -> Execute
    - from account: _master key_
@@ -139,7 +146,7 @@ Prior to setting up the server, it's important to deploy the contracts and have 
    - newOwner: _parity operations_ (the contract address)
    - Execute, provide password and wait until confirmed
 
-   
+
 ## Final usage
 
 We assume this is set up on server resolving from `update-server.parity.io`. At this point, the CI may use two requests, given here as `curl` commands:

@@ -9,5 +9,6 @@
 		"address": "ACCOUNT_ADDRESS",
 		"password": "ACCOUNT_PASSWORD"
 	},
-	"secretHash": "SECRET_HASH"
+	"secretHash": "SECRET_HASH",
+	"assetsBaseUrl": "ASSETS_BASE_URL"
 }

@@ -174,7 +174,7 @@ function handleAsync (asyncFn) {
 		})
 		.catch(err => {
 			console.error(err);
-			res.status(400).end(`Error while processing the request:\n${err.toString()}\n`);
+			res.status(400).end(`Error while processing the request:\n${err.message}\n`);
 		});
 }
 

@@ -14,29 +14,40 @@ const server = new ServerMock({ host: 'localhost', port: 8545 });
 describe('push-release', () => {
 	it('should reject invalid secret', async () => {
 		let res = await request(app => app
-			.post('/push-release/v1.9.5/123')
+			.post('/push-release/v1.9.5/8b749367fd5fea897cee98bd892fff1ce90f8260')
 			.type('form')
-			.send({ secret: 'xx' })
+			.send({ secret: 'xxx' })
 		);
 
-		expect(res).to.have.status(400);
-		expect(res.text).to.equal('Error while processing the request:\nInvalid secret\n');
+		expect(res).to.have.status(401);
+		expect(res.text).to.equal('Invalid secret');
 	});
 
-	it('should reject invalid tags', async () => {
+	it('should gently reject invalid tags', async () => {
 		const test = async tag => {
 			let res = await request(app => app
-				.post(`/push-release/${tag}/123`)
+				.post(`/push-release/${tag}/8b749367fd5fea897cee98bd892fff1ce90f8260`)
 				.type('form')
 				.send({ secret })
 			);
 
-			expect(res).to.have.status(400);
-			expect(res.text).to.equal(`Error while processing the request:\nInvalid tag: ${tag}\n`);
+			expect(res).to.have.status(202);
+			expect(res.text).to.have.string(`child "tag" fails`);
 		};
 
 		await test('xxx');
 		await test('v1.9.5-ci0');
+	});
+
+	it('should reject invalid commit', async () => {
+		let res = await request(app => app
+			.post('/push-release/v1.7.13/8b749367')
+			.type('form')
+			.send({ secret })
+		);
+
+		expect(res).to.have.status(400);
+		expect(res.text).to.have.string(`child "commit" fails`);
 	});
 
 	beforeEach(done => server.start(done));
@@ -84,28 +95,69 @@ describe('push-build', () => {
 		let res = await request(app => app
 			.post('/push-build/v1.9.5/x86_64-unknown-linux-gnu')
 			.type('form')
-			.send({ secret: 'xx' })
+			.send({
+				secret: 'xxx',
+				sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
+				commit: '8b749367fd5fea897cee98bd892fff1ce90f8260',
+				filename: 'parity'
+			})
 		);
 
-		expect(res).to.have.status(400);
-		expect(res.text).to.equal('Error while processing the request:\nInvalid secret\n');
+		expect(res).to.have.status(401);
+		expect(res.text).to.equal('Invalid secret');
 	});
 
-	it('should reject invalid tags', async () => {
+	it('should gently reject invalid tags', async () => {
 		const test = async tag => {
 			let res = await request(app => app
 				.post(`/push-build/${tag}/x86_64-unknown-linux-gnu`)
 				.type('form')
-				.send({ secret, sha3: 'none' })
+				.send({
+					secret,
+					sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
+					commit: '8b749367fd5fea897cee98bd892fff1ce90f8260',
+					filename: 'parity'
+				})
 			);
 
-			expect(res).to.have.status(400);
-			expect(res.text).to.equal(
-				`Error while processing the request:\nInvalid sha3 (none), tag (${tag}) or platform (x86_64-unknown-linux-gnu).\n`);
+			expect(res).to.have.status(202);
+			expect(res.text).to.have.string(`child "tag" fails`);
 		};
 
 		await test('xxx');
 		await test('v1.9.5-ci0');
+	});
+
+	it('should gently reject invalid platform', async () => {
+		let res = await request(app => app
+			.post(`/push-build/nightly/x86_64-debian-linux-gnu`)
+			.type('form')
+			.send({
+				secret,
+				sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
+				commit: '8b749367fd5fea897cee98bd892fff1ce90f8260',
+				filename: 'parity'
+			})
+		);
+
+		expect(res).to.have.status(202);
+		expect(res.text).to.have.string(`child "platform" fails`);
+	});
+
+	it('should reject missing fields', async () => {
+		let res = await request(app => app
+			.post(`/push-build/nightly/x86_64-unknown-linux-gnu`)
+			.type('form')
+			.send({
+				secret,
+				sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
+				// commit: '8b749367fd5fea897cee98bd892fff1ce90f8260',
+				filename: 'parity'
+			})
+		);
+
+		expect(res).to.have.status(400);
+		expect(res.text).to.have.string(`child "commit" fails`);
 	});
 
 	beforeEach(done => server.start(done));
@@ -135,24 +187,25 @@ describe('push-build', () => {
 			.type('form')
 			.send({
 				secret,
-				sha3: 'beefcafe',
-				commit: '8b749367fd5fea897cee98bd892fff1ce90f8260'
+				sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
+				commit: '8b749367fd5fea897cee98bd892fff1ce90f8260',
+				filename: 'parity'
 			})
 		);
 
 		expect(res).to.have.status(200);
 		// Githubhint registration
-		expect(requests[3].method).to.equal('eth_sendTransaction');
-		expect(requests[3].params).to.deep.equal([{
-			data:		'0x02f2008dbeefcafe000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000004f687474703a2f2f64316834786c3463723168306d6f2e636c6f756466726f6e742e6e65742f76312e372e31332f7838365f36342d756e6b6e6f776e2d6c696e75782d676e752f756e646566696e65640000000000000000000000000000000000',
+		expect(requests[2].method).to.equal('eth_sendTransaction');
+		expect(requests[2].params).to.deep.equal([{
+			data: '0x02f2008da00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000004c687474703a2f2f64316834786c3463723168306d6f2e636c6f756466726f6e742e6e65742f76312e372e31332f7838365f36342d756e6b6e6f776e2d6c696e75782d676e752f7061726974790000000000000000000000000000000000000000',
 			from: '0x0066ac7a4608f350bf9a0323d60dde211dfb27c0',
 			gasPrice,
 			to: '0x'
 		}]);
 		// Build registration
-		expect(requests[5].method).to.equal('eth_sendTransaction');
-		expect(requests[5].params).to.deep.equal([{
-			data:		'0x793b0efb0000000000000000000000008b749367fd5fea897cee98bd892fff1ce90f82607838365f36342d756e6b6e6f776e2d6c696e75782d676e750000000000000000beefcafe00000000000000000000000000000000000000000000000000000000',
+		expect(requests[4].method).to.equal('eth_sendTransaction');
+		expect(requests[4].params).to.deep.equal([{
+			data: '0x793b0efb0000000000000000000000008b749367fd5fea897cee98bd892fff1ce90f82607838365f36342d756e6b6e6f776e2d6c696e75782d676e750000000000000000a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
 			from: '0x0066ac7a4608f350bf9a0323d60dde211dfb27c0',
 			gasPrice,
 			to: '0x'

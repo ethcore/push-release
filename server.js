@@ -4,14 +4,26 @@ const config = require('config');
 const request = require('request');
 const express = require('express');
 const bodyParser = require('body-parser');
+const boom = require('boom');
+const { celebrate, Joi, isCelebrate } = require('celebrate');
 const keccak256 = require('js-sha3').keccak_256;
 const Parity = require('@parity/parity.js');
+
+const validate = require('./validation');
 
 const transport = new Parity.Api.Transport.Http(`http://localhost:${config.get('rpc.port')}`);
 const api = new Parity.Api(transport);
 
 const app = express();
 app.use(bodyParser.urlencoded({extended: true}));
+// validate secret for every request
+app.use((req, res, next) => {
+	if (keccak256(req.body.secret || '') !== secretHash) {
+		next(boom.unauthorized('Invalid secret'));
+	} else {
+		next();
+	}
+});
 module.exports = app;
 
 const reduceObject = (obj, prop) => ({ ...obj, [prop]: true });
@@ -44,22 +56,23 @@ const tracks = {
 	testing: 4
 };
 
-app.post('/push-release/:tag/:commit', handleAsync(async function (req, res) {
-	if (keccak256(req.body.secret || '') !== secretHash) {
-		throw new Error('Invalid secret');
+const validateRelease = celebrate({
+	params: {
+		tag: validate.tag,
+		commit: validate.commit,
+	},
+	body: {
+		secret: validate.secret
 	}
+});
+app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async function (req, res) {
 	const { commit, tag } = req.params;
 
 	console.log(`curl --data "secret=${req.body.secret}" http://localhost:${httpPort}/push-release/${tag}/${commit}`);
 
 	const isCritical = false; // TODO: should take from Git release notes for stable/beta.
-	const goodTag = isGoodTag(tag);
 
-	if (!goodTag) {
-		throw new Error(`Invalid tag: ${tag}`);
-	}
-
-	console.log(`Pushing commit: ${commit} (tag: ${tag}/${goodTag})`);
+	console.log(`Pushing commit: ${commit} (tag: ${tag})`);
 
 	const miscBody = await fetchFile(commit, '/util/src/misc.rs');
 	const branch = match(
@@ -71,7 +84,7 @@ app.post('/push-release/:tag/:commit', handleAsync(async function (req, res) {
 	console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${enabledTracks[track]}]`);
 
 	if (!enabledTracks[track]) {
-		throw new Error(`Track not enabled: ${track}`);
+		throw boom(`Track not enabled: ${track}`, { statusCode: 202 });
 	}
 
 	let ethereumMod = await fetchFile(commit, '/ethcore/src/ethereum/mod.rs');
@@ -109,25 +122,27 @@ app.post('/push-release/:tag/:commit', handleAsync(async function (req, res) {
 	res.send(`RELEASE: ${commit}/${track}/${branch}/${forkSupported}`);
 }));
 
-app.post('/push-build/:tag/:platform', handleAsync(async function (req, res) {
-	if (keccak256(req.body.secret || '') !== secretHash) {
-		throw new Error('Invalid secret');
+const validateBuild = celebrate({
+	params: {
+		tag: validate.tag,
+		platform: validate.platform,
+	},
+	body: {
+		secret: validate.secret,
+		sha3: validate.sha3,
+		filename: validate.filename,
+		commit: validate.commit
 	}
-
+});
+app.post('/push-build/:tag/:platform', validateBuild, handleAsync(async function (req, res) {
 	const { tag, platform } = req.params;
 	const { commit, filename, sha3 } = req.body;
 	console.log(`curl --data "secret=${req.body.secret}&commit=${commit}&filename=${filename}&sha3=${sha3}" http://localhost:${httpPort}/push-build/${tag}/${platform}`);
 
 	const url = `${baseUrl}/${tag}/${platform}/${filename}`;
-	const goodTag = isGoodTag(tag);
-	const goodPlatform = !!supportedPlatforms[platform];
 
-	const out = `BUILD: ${platform}/${commit} -> ${sha3}/${tag}/${filename}/${goodTag}/${goodPlatform} [${url}]`;
-	console.log(out);
-
-	if (sha3 === '' || !goodTag || !goodPlatform) {
-		throw new Error(`Invalid sha3 (${sha3}), tag (${tag}) or platform (${platform}).`);
-	}
+	const out = `BUILD: ${platform}/${commit} -> ${sha3}/${tag}/${filename} [${url}]`;
+	console.log(out)
 
 	const body = await fetchFile(commit, '/util/src/misc.rs');
 	const branch = match(
@@ -140,11 +155,8 @@ app.post('/push-build/:tag/:platform', handleAsync(async function (req, res) {
 	console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${!!enabledTracks[track]}]`);
 
 	if (!enabledTracks[track]) {
-		throw new Error(`Track not enabled: ${track}`);
+		throw boom(`Track not enabled: ${track}`, { statusCode: 202 });
 	}
-
-	// make sure the node is running
-	await getNetwork();
 
 	const registryAddress = await api.parity.registryAddress();
 	const reg = api.newContract(RegistrarABI, registryAddress);
@@ -163,6 +175,25 @@ app.post('/push-build/:tag/:platform', handleAsync(async function (req, res) {
 	res.send(out);
 }));
 
+// make sure that the errors are added at the end
+app.use((err, req, res, next) => {
+	if (isCelebrate(err)) {
+		const fields = err.details.map(x => x.path && x.path.join ? x.path.join('.') : x.path);
+		if (fields.indexOf('platform') !== -1 || fields.indexOf('tag') !== -1) {
+			res.status(202).send(err.message);
+		} else {
+			res.status(400).send(err.message);
+		}
+	}
+
+	if (boom.isBoom(err)) {
+		const { statusCode, payload } = err.output;
+		res.status(statusCode).send(payload.message);
+	}
+
+	return next(err);
+});
+
 function match (string, pattern, comment) {
 	const match = string.match(pattern);
 	if (!match) {
@@ -173,7 +204,7 @@ function match (string, pattern, comment) {
 }
 
 function handleAsync (asyncFn) {
-	return (req, res) => asyncFn(req, res)
+	return (req, res, next) => asyncFn(req, res)
 		.then(() => {
 			if (!res.headersSent) {
 				throw new Error('No response from handler');
@@ -181,7 +212,7 @@ function handleAsync (asyncFn) {
 		})
 		.catch(err => {
 			console.error(err);
-			res.status(400).end(`Error while processing the request:\n${err.message}\n`);
+			next(err);
 		});
 }
 
@@ -207,10 +238,6 @@ async function getNetwork () {
 	const network = (n === 'homestead' || n === 'mainnet' || n === 'foundation' ? 'foundation' : n.indexOf('kovan.json') !== -1 ? 'kovan' : n);
 	console.log(`On network ${network}`);
 	return network;
-}
-
-function isGoodTag (tag) {
-	return tag === 'nightly' || /^v[0-9]+\.[0-9]+\.[0-9]+$/.test(tag);
 }
 
 function sendTransaction (abi, address, method, args) {

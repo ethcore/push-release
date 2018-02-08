@@ -1,7 +1,6 @@
 const config = require('config');
 const { Joi } = require('celebrate');
 
-const secretHash = config.get('secretHash');
 const commit = Joi.string().hex().length(40).required();
 const filename = Joi.string().min(3).required();
 const platform = Joi.valid(config.get('supportedPlatforms')).required();
@@ -15,5 +14,5 @@ module.exports = {
 	platform,
 	secret,
 	sha3,
-	tag,
-}
+	tag
+};

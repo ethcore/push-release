@@ -4,7 +4,7 @@ const config = require('config');
 const request = require('request');
 const express = require('express');
 const bodyParser = require('body-parser');
-const { celebrate, Joi, isCelebrate } = require('celebrate');
+const { celebrate, isCelebrate } = require('celebrate');
 const keccak256 = require('js-sha3').keccak_256;
 const Parity = require('@parity/parity.js');
 
@@ -28,7 +28,6 @@ module.exports = app;
 
 const reduceObject = (obj, prop) => ({ ...obj, [prop]: true });
 const enabledTracks = config.get('enabledTracks').reduce(reduceObject, {});
-const supportedPlatforms = config.get('supportedPlatforms').reduce(reduceObject, {});
 
 const account = {
 	address: config.get('account.address'),
@@ -59,7 +58,7 @@ const tracks = {
 const validateRelease = celebrate({
 	params: {
 		tag: validate.tag,
-		commit: validate.commit,
+		commit: validate.commit
 	},
 	body: {
 		secret: validate.secret
@@ -125,7 +124,7 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 const validateBuild = celebrate({
 	params: {
 		tag: validate.tag,
-		platform: validate.platform,
+		platform: validate.platform
 	},
 	body: {
 		secret: validate.secret,
@@ -142,7 +141,7 @@ app.post('/push-build/:tag/:platform', validateBuild, handleAsync(async function
 	const url = `${baseUrl}/${tag}/${platform}/${filename}`;
 
 	const out = `BUILD: ${platform}/${commit} -> ${sha3}/${tag}/${filename} [${url}]`;
-	console.log(out)
+	console.log(out);
 
 	const body = await fetchFile(commit, '/util/src/misc.rs');
 	const branch = match(

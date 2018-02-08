@@ -4,12 +4,12 @@ const config = require('config');
 const request = require('request');
 const express = require('express');
 const bodyParser = require('body-parser');
-const boom = require('boom');
 const { celebrate, Joi, isCelebrate } = require('celebrate');
 const keccak256 = require('js-sha3').keccak_256;
 const Parity = require('@parity/parity.js');
 
 const validate = require('./validation');
+const boom = require('./error');
 
 const transport = new Parity.Api.Transport.Http(`http://localhost:${config.get('rpc.port')}`);
 const api = new Parity.Api(transport);
@@ -84,7 +84,7 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 	console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${enabledTracks[track]}]`);
 
 	if (!enabledTracks[track]) {
-		throw boom(`Track not enabled: ${track}`, { statusCode: 202 });
+		throw boom.accepted(`Track not enabled: ${track}`);
 	}
 
 	let ethereumMod = await fetchFile(commit, '/ethcore/src/ethereum/mod.rs');
@@ -155,7 +155,7 @@ app.post('/push-build/:tag/:platform', validateBuild, handleAsync(async function
 	console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${!!enabledTracks[track]}]`);
 
 	if (!enabledTracks[track]) {
-		throw boom(`Track not enabled: ${track}`, { statusCode: 202 });
+		throw boom.accepted(`Track not enabled: ${track}`);
 	}
 
 	const registryAddress = await api.parity.registryAddress();
@@ -186,9 +186,8 @@ app.use((err, req, res, next) => {
 		}
 	}
 
-	if (boom.isBoom(err)) {
-		const { statusCode, payload } = err.output;
-		res.status(statusCode).send(payload.message);
+	if (err.isBoom) {
+		res.status(err.statusCode).send(err.message);
 	}
 
 	return next(err);

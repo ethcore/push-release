@@ -62,7 +62,11 @@ app.post('/push-release/:tag/:commit', handleAsync(async function (req, res) {
 	console.log(`Pushing commit: ${commit} (tag: ${tag}/${goodTag})`);
 
 	const miscBody = await fetchFile(commit, '/util/src/misc.rs');
-	const branch = miscBody.match(`const THIS_TRACK. ..static str = "([a-z]*)";`)[1];
+	const branch = match(
+		miscBody,
+		/const THIS_TRACK. ..static str = "([a-z]*)";/,
+		'Unable to detect track'
+	)[1];
 	const track = tracks[branch] ? branch : 'testing';
 	console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${enabledTracks[track]}]`);
 
@@ -72,21 +76,24 @@ app.post('/push-release/:tag/:commit', handleAsync(async function (req, res) {
 
 	let ethereumMod = await fetchFile(commit, '/ethcore/src/ethereum/mod.rs');
 	const network = await getNetwork();
-	const pattern = `pub const FORK_SUPPORTED_${network.toUpperCase()}: u64 = (\\d+);`;
-	const m = ethereumMod.match(pattern);
-	if (m === null) {
-		throw new Error(`Unable to detect supported fork with pattern: ${pattern}.`);
-	}
-
-	const forkSupported = m[1];
+	const forkSupported = match(
+		ethereumMod,
+		`pub const FORK_SUPPORTED_${network.toUpperCase()}: u64 = (\\d+);`,
+		'Unable to detect supported fork'
+	)[1];
 
 	console.log(`Fork supported: ${forkSupported}`);
 
 	const cargoToml = await fetchFile(commit, '/Cargo.toml');
-	const version = cargoToml.match(/version = "([0-9]+)\.([0-9]+)\.([0-9]+)"/).slice(1);
-	const semver = +version[0] * 65536 + +version[1] * 256 + +version[2];
+	const versionMatch = match(
+		cargoToml,
+		/version = "([0-9]+)\.([0-9]+)\.([0-9]+)"/,
+		'Unable to detect version'
+	);
+	const [major, minor, patch] = versionMatch.slice(1).map(x => parseInt(x, 10));
+	const semver = major * 65536 + minor * 256 + patch;
 
-	console.log(`Version: ${version.join('.')} = ${semver}`);
+	console.log(`Version: ${versionMatch.join('.')} = ${semver}`);
 
 	const registryAddress = await api.parity.registryAddress();
 	console.log(`Registry address: ${registryAddress}`);
@@ -123,7 +130,11 @@ app.post('/push-build/:tag/:platform', handleAsync(async function (req, res) {
 	}
 
 	const body = await fetchFile(commit, '/util/src/misc.rs');
-	const branch = body.match(`const THIS_TRACK. ..static str = "([a-z]*)";`)[1];
+	const branch = match(
+		body,
+		/const THIS_TRACK. ..static str = "([a-z]*)"/,
+		'Unable to detect track'
+	)[1];
 	const track = tracks[branch] ? branch : 'testing';
 
 	console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${!!enabledTracks[track]}]`);
@@ -151,6 +162,15 @@ app.post('/push-build/:tag/:platform', handleAsync(async function (req, res) {
 	// Respond already
 	res.send(out);
 }));
+
+function match (string, pattern, comment) {
+	const match = string.match(pattern);
+	if (!match) {
+		throw new Error(`${comment} in ${string}`);
+	}
+
+	return match;
+}
 
 function handleAsync (asyncFn) {
 	return (req, res) => asyncFn(req, res)

@@ -11,7 +11,7 @@
 		"gasPrice": "0x4F9ACA000"
 	},
 	"enabledTracks": ["stable", "beta"],
-	"secretHash": "ffa69b8d6bc6f7466e51ff21931295be5d5234dafc5f3ff034f68d59918744c4",
+	"secretHash": "9c22ff5f21f0b81b113e63f7db6da94fedef11b2119b4088b89664fb9a3cb658",
 	"repository": "paritytech/parity",
 	"assetsBaseUrl": "http://d1h4xl4cr1h0mo.cloudfront.net",
 	"supportedPlatforms": ["x86_64-apple-darwin", "x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]

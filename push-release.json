@@ -1,7 +1,7 @@
 [
 	{
 		"name": "push-release",
-		"script": "server.js",
+		"script": "index.js",
 		"log_date_format": "YYYY-MM-DD HH:mm Z",
 		"merge_logs": false,
 		"watch": false,
@@ -15,7 +15,7 @@
 	},
 	{
 		"name": "push-release-kovan",
-		"script": "server.js",
+		"script": "index.js",
 		"log_date_format": "YYYY-MM-DD HH:mm Z",
 		"merge_logs": false,
 		"watch": false,

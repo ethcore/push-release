@@ -9,5 +9,6 @@
 		"address": "0x004E9a7d60af10f7A8866b868e36b86D4A9bA450",
 		"gasPrice": null
 	},
+	"secretHash": "ffa69b8d6bc6f7466e51ff21931295be5d5234dafc5f3ff034f68d59918744c4",
 	"enabledTracks": ["stable", "beta", "nightly", "master", "testing"]
 }

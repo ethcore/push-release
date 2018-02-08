@@ -12,6 +12,7 @@ const api = new Parity.Api(transport);
 
 const app = express();
 app.use(bodyParser.urlencoded({extended: true}));
+module.exports = app;
 
 const reduceObject = (obj, prop) => ({ ...obj, [prop]: true });
 const enabledTracks = config.get('enabledTracks').reduce(reduceObject, {});
@@ -45,7 +46,7 @@ const tracks = {
 
 app.post('/push-release/:tag/:commit', handleAsync(async function (req, res) {
 	if (keccak256(req.body.secret || '') !== secretHash) {
-		throw new Error('Bad request');
+		throw new Error('Invalid secret');
 	}
 	const { commit, tag } = req.params;
 
@@ -79,12 +80,9 @@ app.post('/push-release/:tag/:commit', handleAsync(async function (req, res) {
 
 	const forkSupported = m[1];
 
-	// Return a response already.
-	res.send(`RELEASE: ${commit}/${track}/${branch}/${forkSupported}`);
-
 	console.log(`Fork supported: ${forkSupported}`);
 
-	let cargoToml = await fetchFile(commit, 'Cargo.toml');
+	const cargoToml = await fetchFile(commit, '/Cargo.toml');
 	const version = cargoToml.match(/version = "([0-9]+)\.([0-9]+)\.([0-9]+)"/).slice(1);
 	const semver = +version[0] * 65536 + +version[1] * 256 + +version[2];
 
@@ -97,16 +95,16 @@ app.post('/push-release/:tag/:commit', handleAsync(async function (req, res) {
 	const operationsAddress = await registry.instance.getAddress.call({}, [operationsContract, 'A']);
 	console.log(`Parity operations address: ${operationsAddress}`);
 	console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${isCritical}`);
-	// Should be this...
-	// api.newContract(OperationsABI, a).instance.addRelease.postTransaction({from: account.address}, [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, isCritical])
-	// ...but will have to be this for now...
 	const hash = await sendTransaction(OperationsABI, operationsAddress, 'addRelease', [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, isCritical]);
 	console.log(`Transaction sent with hash: ${hash}`);
+
+	// Return the response
+	res.send(`RELEASE: ${commit}/${track}/${branch}/${forkSupported}`);
 }));
 
 app.post('/push-build/:tag/:platform', handleAsync(async function (req, res) {
 	if (keccak256(req.body.secret || '') !== secretHash) {
-		throw new Error('Bad request');
+		throw new Error('Invalid secret');
 	}
 
 	const { tag, platform } = req.params;
@@ -124,7 +122,7 @@ app.post('/push-build/:tag/:platform', handleAsync(async function (req, res) {
 		throw new Error(`Invalid sha3 (${sha3}), tag (${tag}) or platform (${platform}).`);
 	}
 
-	let body = await fetchFile(commit, '/util/src/misc.rs');
+	const body = await fetchFile(commit, '/util/src/misc.rs');
 	const branch = body.match(`const THIS_TRACK. ..static str = "([a-z]*)";`)[1];
 	const track = tracks[branch] ? branch : 'testing';
 
@@ -136,34 +134,23 @@ app.post('/push-build/:tag/:platform', handleAsync(async function (req, res) {
 
 	// make sure the node is running
 	await getNetwork();
-	// Respond already
-	res.send(out);
 
 	const registryAddress = await api.parity.registryAddress();
 	const reg = api.newContract(RegistrarABI, registryAddress);
 	const githubHintAddress = await reg.instance.getAddress.call({}, [githubHint, 'A']);
 
 	console.log(`Registering on GithubHint: ${sha3}, ${url}`);
-	// Should be this...
-	// api.newContract(GitHubHintABI, g).instance.hintURL.postTransaction({from: account.address}, [`0x${sha3}`, url]).then(() => {
-	// ...but will have to be this for now...
 	const hash = await sendTransaction(GitHubHintABI, githubHintAddress, 'hintURL', [`0x${sha3}`, url]);
 	console.log(`Transaction sent with hash: ${hash}`);
 
-	const operationsAddress = reg.instance.getAddress.call({}, [operationsContract, 'A']);
+	const operationsAddress = await reg.instance.getAddress.call({}, [operationsContract, 'A']);
 	console.log(`Registering platform binary: ${commit}, ${platform}, ${sha3}`);
-	// Should be this...
-	// return api.newContract(OperationsABI, o).instance.addChecksum.postTransaction({from: account.address}, [`0x000000000000000000000000${commit}`, platform, `0x${sha3}`]);
-	// ...but will have to be this for now...
 	const hash2 = await sendTransaction(OperationsABI, operationsAddress, 'addChecksum', [`0x000000000000000000000000${commit}`, platform, `0x${sha3}`]);
 	console.log(`Transaction sent with hash: ${hash2}`);
-}));
 
-const server = app.listen(httpPort, function () {
-	const host = server.address().address;
-	const port = server.address().port;
-	console.log('push-release service listening at http://%s:%s', host, port);
-});
+	// Respond already
+	res.send(out);
+}));
 
 function handleAsync (asyncFn) {
 	return (req, res) => asyncFn(req, res)

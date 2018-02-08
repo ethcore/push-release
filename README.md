@@ -17,7 +17,7 @@ To ensure only valid updates are processed, all requests must provide an authent
 The configuration is managed in `config` directory. [The `default.json`](config/default.json) file as the name suggested is used as a base configuration, every entry can
 be overwritten in env-specific config files (see [`kovan.json`](config/kovan.json) as an example). Feel free to add your override to that directory.
 
-To load a specific config file run with `NODE_ENV` environment variable set to the name of the config file. E.g. `NODE_ENV="kovan" node server.js`
+To load a specific config file run with `NODE_ENV` environment variable set to the name of the config file. E.g. `NODE_ENV="kovan" node index.js`
 will run the server using `kovan.json` settings.
 
 Some parameters can also be overridden by environment variables. See [`config/custom-environment-variables.json`](config/custom-environment-variables.json) for all possible options. Notable ones:

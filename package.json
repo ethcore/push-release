@@ -13,6 +13,8 @@
   "dependencies": {
     "@parity/parity.js": "^0.2.120",
     "body-parser": "^1.15.2",
+    "boom": "7.1.1",
+    "celebrate": "7.0.4",
     "config": "1.29.4",
     "express": "^4.13.3",
     "js-sha3": "^0.5.5",

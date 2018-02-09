@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 const { celebrate, isCelebrate } = require('celebrate');
 const keccak256 = require('js-sha3').keccak_256;
 const Parity = require('@parity/parity.js');
+const toml = require('toml');
 
 const validate = require('./validation');
 const boom = require('./error');
@@ -69,37 +70,22 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 
 	console.log(`curl --data "secret=${req.body.secret}" http://localhost:${httpPort}/push-release/${tag}/${commit}`);
 
-	const isCritical = false; // TODO: should take from Git release notes for stable/beta.
-
 	console.log(`Pushing commit: ${commit} (tag: ${tag})`);
-
-	const miscBody = await fetchFile(commit, '/util/src/misc.rs');
-	const branch = match(
-		miscBody,
-		/const THIS_TRACK. ..static str = "([a-z]*)";/,
-		'Unable to detect track'
-	)[1];
-	const track = tracks[branch] ? branch : 'testing';
-	console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${enabledTracks[track]}]`);
+	const meta = await readParityMetadata(commit);
+	const track = tracks[meta.track] ? meta.track : 'testing';
+	console.log(`Track: ${meta.track} => ${track} (${tracks[track]}) [enabled: ${enabledTracks[track]}]`);
 
 	if (!enabledTracks[track]) {
 		throw boom.accepted(`Track not enabled: ${track}`);
 	}
 
-	let ethereumMod = await fetchFile(commit, '/ethcore/src/ethereum/mod.rs');
 	const network = await getNetwork();
-	const forkSupported = match(
-		ethereumMod,
-		`pub const FORK_SUPPORTED_${network.toUpperCase()}: u64 = (\\d+);`,
-		'Unable to detect supported fork'
-	)[1];
-
+	const forkSupported = parseInt(meta.forks[network.toLowerCase()], 10);
 	console.log(`Fork supported: ${forkSupported}`);
 
-	const cargoToml = await fetchFile(commit, '/Cargo.toml');
 	const versionMatch = match(
-		cargoToml,
-		/version = "([0-9]+)\.([0-9]+)\.([0-9]+)"/,
+		meta.version,
+		/([0-9]+)\.([0-9]+)\.([0-9]+)/,
 		'Unable to detect version'
 	);
 	const [major, minor, patch] = versionMatch.slice(1).map(x => parseInt(x, 10));
@@ -111,6 +97,7 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 	console.log(`Registry address: ${registryAddress}`);
 	const registry = api.newContract(RegistrarABI, registryAddress);
 
+	const isCritical = meta.critical
 	const operationsAddress = await registry.instance.getAddress.call({}, [operationsContract, 'A']);
 	console.log(`Parity operations address: ${operationsAddress}`);
 	console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${isCritical}`);
@@ -118,7 +105,7 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 	console.log(`Transaction sent with hash: ${hash}`);
 
 	// Return the response
-	res.send(`RELEASE: ${commit}/${track}/${branch}/${forkSupported}`);
+	res.send(`RELEASE: ${commit}/${track}/${meta.track}/${forkSupported}`);
 }));
 
 const validateBuild = celebrate({
@@ -143,15 +130,9 @@ app.post('/push-build/:tag/:platform', validateBuild, handleAsync(async function
 	const out = `BUILD: ${platform}/${commit} -> ${sha3}/${tag}/${filename} [${url}]`;
 	console.log(out);
 
-	const body = await fetchFile(commit, '/util/src/misc.rs');
-	const branch = match(
-		body,
-		/const THIS_TRACK. ..static str = "([a-z]*)"/,
-		'Unable to detect track'
-	)[1];
-	const track = tracks[branch] ? branch : 'testing';
-
-	console.log(`Track: ${branch} => ${track} (${tracks[track]}) [enabled: ${!!enabledTracks[track]}]`);
+	const meta = await readParityMetadata(commit);
+	const track = tracks[meta.track] ? meta.track : 'testing';
+	console.log(`Track: ${meta.track} => ${track} (${tracks[track]}) [enabled: ${!!enabledTracks[track]}]`);
 
 	if (!enabledTracks[track]) {
 		throw boom.accepted(`Track not enabled: ${track}`);
@@ -170,7 +151,6 @@ app.post('/push-build/:tag/:platform', validateBuild, handleAsync(async function
 	const hash2 = await sendTransaction(OperationsABI, operationsAddress, 'addChecksum', [`0x000000000000000000000000${commit}`, platform, `0x${sha3}`]);
 	console.log(`Transaction sent with hash: ${hash2}`);
 
-	// Respond already
 	res.send(out);
 }));
 
@@ -215,6 +195,21 @@ function handleAsync (asyncFn) {
 			console.error(err);
 			next(err);
 		});
+}
+
+async function readParityMetadata (commit) {
+	try {
+		const metaFile = await fetchFile(commit, '/util/version/Cargo.toml');
+		const parsed = toml.parse(metaFile);
+
+		return {
+			version: parsed.package.version,
+			critical: parsed.package.critical || false,
+			...parsed.package.metadata
+		};
+	} catch (err) {
+		throw boom.badRequest(`Unable to parse Parity metadata: ${err.message}`);
+	}
 }
 
 function fetchFile (commit, path) {

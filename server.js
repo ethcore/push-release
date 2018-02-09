@@ -69,8 +69,8 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 	const { commit, tag } = req.params;
 
 	console.log(`curl --data "secret=${req.body.secret}" http://localhost:${httpPort}/push-release/${tag}/${commit}`);
-
 	console.log(`Pushing commit: ${commit} (tag: ${tag})`);
+
 	const meta = await readParityMetadata(commit);
 	const track = tracks[meta.track] ? meta.track : 'testing';
 	console.log(`Track: ${meta.track} => ${track} (${tracks[track]}) [enabled: ${enabledTracks[track]}]`);
@@ -79,30 +79,32 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 		throw boom.accepted(`Track not enabled: ${track}`);
 	}
 
-	const network = await getNetwork();
-	const forkSupported = parseInt(meta.forks[network.toLowerCase()], 10);
+	const network = (await getNetwork()).toLowerCase();
+	let forkSupported = parseInt(meta.forks[network], 10);
+	if (isNaN(forkSupported)) {
+		console.warn(`Invalid fork data for ${network}: '${meta.forks[network]}', assuming 0`);
+		forkSupported = 0;
+	}
+
 	console.log(`Fork supported: ${forkSupported}`);
 
-	const versionMatch = match(
-		meta.version,
-		/([0-9]+)\.([0-9]+)\.([0-9]+)/,
-		'Unable to detect version'
-	);
-	const [major, minor, patch] = versionMatch.slice(1).map(x => parseInt(x, 10));
+	let versionMatch = meta.version.match(/([0-9]+)\.([0-9]+)\.([0-9]+)/);
+	if (!versionMatch) {
+		throw new Error(`Unable to detect version in ${meta.version}`);
+	}
+	versionMatch = versionMatch.slice(1);
+	const [major, minor, patch] = versionMatch.map(x => parseInt(x, 10));
 	const semver = major * 65536 + minor * 256 + patch;
 
 	console.log(`Version: ${versionMatch.join('.')} = ${semver}`);
 
 	const registryAddress = await api.parity.registryAddress();
-	console.log(`Registry address: ${registryAddress}`);
 	const registry = api.newContract(RegistrarABI, registryAddress);
 
-	const isCritical = meta.critical
+	console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${meta.critical}`);
+
 	const operationsAddress = await registry.instance.getAddress.call({}, [operationsContract, 'A']);
-	console.log(`Parity operations address: ${operationsAddress}`);
-	console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${isCritical}`);
-	const hash = await sendTransaction(OperationsABI, operationsAddress, 'addRelease', [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, isCritical]);
-	console.log(`Transaction sent with hash: ${hash}`);
+	await sendTransaction(OperationsABI, operationsAddress, 'addRelease', [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, meta.critical]);
 
 	// Return the response
 	res.send(`RELEASE: ${commit}/${track}/${meta.track}/${forkSupported}`);
@@ -140,16 +142,16 @@ app.post('/push-build/:tag/:platform', validateBuild, handleAsync(async function
 
 	const registryAddress = await api.parity.registryAddress();
 	const reg = api.newContract(RegistrarABI, registryAddress);
-	const githubHintAddress = await reg.instance.getAddress.call({}, [githubHint, 'A']);
 
 	console.log(`Registering on GithubHint: ${sha3}, ${url}`);
-	const hash = await sendTransaction(GitHubHintABI, githubHintAddress, 'hintURL', [`0x${sha3}`, url]);
-	console.log(`Transaction sent with hash: ${hash}`);
+
+	const githubHintAddress = await reg.instance.getAddress.call({}, [githubHint, 'A']);
+	await sendTransaction(GitHubHintABI, githubHintAddress, 'hintURL', [`0x${sha3}`, url]);
+
+	console.log(`Registering platform binary: ${commit}, ${platform}, ${sha3}`);
 
 	const operationsAddress = await reg.instance.getAddress.call({}, [operationsContract, 'A']);
-	console.log(`Registering platform binary: ${commit}, ${platform}, ${sha3}`);
-	const hash2 = await sendTransaction(OperationsABI, operationsAddress, 'addChecksum', [`0x000000000000000000000000${commit}`, platform, `0x${sha3}`]);
-	console.log(`Transaction sent with hash: ${hash2}`);
+	await sendTransaction(OperationsABI, operationsAddress, 'addChecksum', [`0x000000000000000000000000${commit}`, platform, `0x${sha3}`]);
 
 	res.send(out);
 }));
@@ -175,15 +177,6 @@ app.use((err, req, res, next) => {
 	return res.status(500).send(err.message);
 });
 
-function match (string, pattern, comment) {
-	const match = string.match(pattern);
-	if (!match) {
-		throw new Error(`${comment} in ${string}`);
-	}
-
-	return match;
-}
-
 function handleAsync (asyncFn) {
 	return (req, res, next) => asyncFn(req, res)
 		.then(() => {
@@ -208,7 +201,7 @@ async function readParityMetadata (commit) {
 			...parsed.package.metadata
 		};
 	} catch (err) {
-		throw boom.badRequest(`Unable to parse Parity metadata: ${err.message}`);
+		throw new Error(`Unable to parse Parity metadata: ${err.message}`);
 	}
 }
 
@@ -244,7 +237,12 @@ function sendTransaction (abi, address, method, args) {
 		gasPrice: account.gasPrice,
 		data: o.getCallData(o.instance[method], {}, args)
 	};
-	return account.password === null
+	console.log('Sending transaction: ', tx);
+
+	const hash = account.password === null
 		? api.eth.sendTransaction(tx)
 		: api.personal.signAndSendTransaction(tx, account.password);
+
+	console.log(`Transaction sent with hash: ${hash}`);
+	return hash;
 }

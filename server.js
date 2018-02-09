@@ -183,13 +183,16 @@ app.use((err, req, res, next) => {
 		} else {
 			res.status(400).send(err.message);
 		}
+		return;
 	}
 
 	if (err.isBoom) {
 		res.status(err.statusCode).send(err.message);
+		return;
 	}
 
-	return next(err);
+	console.error(err);
+	return res.status(500).send(err.message);
 });
 
 function match (string, pattern, comment) {

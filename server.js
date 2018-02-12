@@ -246,7 +246,7 @@ async function getNetwork () {
 	return network;
 }
 
-function sendTransaction (abi, address, method, args) {
+async function sendTransaction (abi, address, method, args) {
 	let o = api.newContract(abi, address);
 	let tx = {
 		from: account.address,
@@ -258,10 +258,11 @@ function sendTransaction (abi, address, method, args) {
 	}
 	console.log('Sending transaction: ', tx);
 
-	const hash = account.password === null
+	const request = account.password === null
 		? api.eth.sendTransaction(tx)
 		: api.personal.signAndSendTransaction(tx, account.password);
 
+	const hash = await request;
 	console.log(`Transaction sent with hash: ${hash}`);
 	return hash;
 }

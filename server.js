@@ -4,6 +4,7 @@ const config = require('config');
 const request = require('request');
 const express = require('express');
 const bodyParser = require('body-parser');
+const morganBody = require('morgan-body');
 const { celebrate, isCelebrate } = require('celebrate');
 const keccak256 = require('js-sha3').keccak_256;
 const Parity = require('@parity/parity.js');
@@ -17,6 +18,7 @@ const api = new Parity.Api(transport);
 
 const app = express();
 app.use(bodyParser.urlencoded({extended: true}));
+morganBody(app);
 // validate secret for every request
 app.use((req, res, next) => {
 	if (keccak256(req.body.secret || '') !== secretHash) {

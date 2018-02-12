@@ -251,9 +251,11 @@ function sendTransaction (abi, address, method, args) {
 	let tx = {
 		from: account.address,
 		to: address,
-		gasPrice: account.gasPrice,
 		data: o.getCallData(o.instance[method], {}, args)
 	};
+	if (account.gasPrice) {
+		tx.gasPrice = account.gasPrice;
+	}
 	console.log('Sending transaction: ', tx);
 
 	const hash = account.password === null

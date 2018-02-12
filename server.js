@@ -7,18 +7,30 @@ const bodyParser = require('body-parser');
 const morganBody = require('morgan-body');
 const { celebrate, isCelebrate } = require('celebrate');
 const keccak256 = require('js-sha3').keccak_256;
-const Parity = require('@parity/parity.js');
+const Parity = require('@parity/api');
 const toml = require('toml');
 
 const validate = require('./validation');
 const boom = require('./error');
 
-const transport = new Parity.Api.Transport.Http(`http://localhost:${config.get('rpc.port')}`);
-const api = new Parity.Api(transport);
+const transport = new Parity.Provider.Http(`http://localhost:${config.get('rpc.port')}`);
+const api = new Parity(transport);
 
 const app = express();
 // Support health checking by sending HEAD
 app.head('/', (req, res) => res.status(200).end());
+
+app.get('/health', handleAsync(async (req, res) => {
+	const network = getNetwork();
+	const health = api.parity.nodeHealth();
+
+	res.setHeader('Content-Type', 'application/json');
+
+	return {
+		network: await network,
+		health: await health
+	};
+}));
 
 // Middlewares
 app.use(bodyParser.urlencoded({extended: true}));

@@ -60,7 +60,7 @@ const baseUrl = config.get('assetsBaseUrl');
 const secretHash = config.get('secretHash');
 const githubRepo = config.get('repository');
 
-const operationsContract = api.util.sha3('parityOperations');
+const operationsContract = api.util.sha3('parityoperations');
 const githubHint = api.util.sha3('githubhint');
 
 const RegistrarABI = require('./res/registrar.json');

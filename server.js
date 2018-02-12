@@ -17,8 +17,13 @@ const transport = new Parity.Api.Transport.Http(`http://localhost:${config.get('
 const api = new Parity.Api(transport);
 
 const app = express();
+// Support health checking by sending HEAD
+app.head('/', (req, res) => res.status(200).end());
+
+// Middlewares
 app.use(bodyParser.urlencoded({extended: true}));
 morganBody(app);
+
 // validate secret for every request
 app.use((req, res, next) => {
 	if (keccak256(req.body.secret || '') !== secretHash) {

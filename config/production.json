@@ -1,3 +1,4 @@
 {
+	"enabledTracks": ["stable", "beta"],
 	"secretHash": "ffa69b8d6bc6f7466e51ff21931295be5d5234dafc5f3ff034f68d59918744c4"
 }

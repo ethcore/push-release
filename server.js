@@ -107,7 +107,7 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 	await sendTransaction(OperationsABI, operationsAddress, 'addRelease', [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, meta.critical]);
 
 	// Return the response
-	res.send(`RELEASE: ${commit}/${track}/${meta.track}/${forkSupported}`);
+	return `RELEASE: ${commit}/${track}/${meta.track}/${forkSupported}`;
 }));
 
 const validateBuild = celebrate({
@@ -153,7 +153,7 @@ app.post('/push-build/:tag/:platform', validateBuild, handleAsync(async function
 	const operationsAddress = await reg.instance.getAddress.call({}, [operationsContract, 'A']);
 	await sendTransaction(OperationsABI, operationsAddress, 'addChecksum', [`0x000000000000000000000000${commit}`, platform, `0x${sha3}`]);
 
-	res.send(out);
+	return out;
 }));
 
 // make sure that the errors are added at the end
@@ -179,10 +179,8 @@ app.use((err, req, res, next) => {
 
 function handleAsync (asyncFn) {
 	return (req, res, next) => asyncFn(req, res)
-		.then(() => {
-			if (!res.headersSent) {
-				throw new Error('No response from handler');
-			}
+		.then(result => {
+			return res.send(result);
 		})
 		.catch(err => {
 			console.error(err);

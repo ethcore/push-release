@@ -99,9 +99,10 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 	}
 
 	const network = (await getNetwork()).toLowerCase();
-	let forkSupported = parseInt(meta.forks[network], 10);
+	const networkSettings = meta.networks[network];
+	let forkSupported = parseInt(networkSettings.forkBlock, 10);
 	if (isNaN(forkSupported)) {
-		console.warn(`Invalid fork data for ${network}: '${meta.forks[network]}', assuming 0`);
+		console.warn(`Invalid fork data for ${network}: '${networkSettings.forkBlock}', assuming 0`);
 		forkSupported = 0;
 	}
 
@@ -120,10 +121,10 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 	const registryAddress = await api.parity.registryAddress();
 	const registry = api.newContract(RegistrarABI, registryAddress);
 
-	console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${meta.critical}`);
+	console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${networkSettings.critical}`);
 
 	const operationsAddress = await registry.instance.getAddress.call({}, [operationsContract, 'A']);
-	await sendTransaction(OperationsABI, operationsAddress, 'addRelease', [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, meta.critical]);
+	await sendTransaction(OperationsABI, operationsAddress, 'addRelease', [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, networkSettings.critical]);
 
 	// Return the response
 	return `RELEASE: ${commit}/${track}/${meta.track}/${forkSupported}`;
@@ -214,7 +215,6 @@ async function readParityMetadata (commit) {
 
 		return {
 			version: parsed.package.version,
-			critical: parsed.package.critical || false,
 			...parsed.package.metadata
 		};
 	} catch (err) {

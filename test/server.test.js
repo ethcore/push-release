@@ -14,7 +14,7 @@ const server = new ServerMock({ host: 'localhost', port: 8545 });
 describe('push-release', () => {
 	it('should reject invalid secret', async () => {
 		let res = await request(app => app
-			.post('/push-release/v1.9.5/8b749367fd5fea897cee98bd892fff1ce90f8260')
+			.post('/push-release/v1.9.5/e92e6c4f796f6338b2a99c499a0fe9c238f2d84f')
 			.type('form')
 			.send({ secret: 'xxx' })
 		);
@@ -26,7 +26,7 @@ describe('push-release', () => {
 	it('should gently reject invalid tags', async () => {
 		const test = async tag => {
 			let res = await request(app => app
-				.post(`/push-release/${tag}/8b749367fd5fea897cee98bd892fff1ce90f8260`)
+				.post(`/push-release/${tag}/e92e6c4f796f6338b2a99c499a0fe9c238f2d84f`)
 				.type('form')
 				.send({ secret })
 			);
@@ -66,7 +66,7 @@ describe('push-release', () => {
 		});
 
 		let res = await request(app => app
-			.post('/push-release/v1.7.13/c060d9584dae34e0e215f061bd61b2ebd375956b')
+			.post('/push-release/v1.7.13/e92e6c4f796f6338b2a99c499a0fe9c238f2d84f')
 			.type('form')
 			.send({ secret })
 		);
@@ -75,7 +75,7 @@ describe('push-release', () => {
 		// Register in operations
 		expect(requests[3].method).to.equal('eth_sendTransaction');
 		expect(requests[3].params).to.deep.equal([{
-			data: '0x932ab270000000000000000000000000c060d9584dae34e0e215f061bd61b2ebd375956b00000000000000000000000000000000000000000000000000000000004d50f800000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000010a000000000000000000000000000000000000000000000000000000000000000000',
+			data: '0x932ab270000000000000000000000000e92e6c4f796f6338b2a99c499a0fe9c238f2d84f000000000000000000000000000000000000000000000000000000000064b54000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000010c000000000000000000000000000000000000000000000000000000000000000000',
 			from: '0x0066ac7a4608f350bf9a0323d60dde211dfb27c0',
 		gasPrice,
 			to: '0x0000000000000000bf900003d60dde211dfb0000'
@@ -91,7 +91,7 @@ describe('push-build', () => {
 			.send({
 				secret: 'xxx',
 				sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
-				commit: '8b749367fd5fea897cee98bd892fff1ce90f8260',
+				commit: 'e92e6c4f796f6338b2a99c499a0fe9c238f2d84f',
 				filename: 'parity'
 			})
 		);
@@ -108,7 +108,7 @@ describe('push-build', () => {
 				.send({
 					secret,
 					sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
-					commit: '8b749367fd5fea897cee98bd892fff1ce90f8260',
+					commit: 'e92e6c4f796f6338b2a99c499a0fe9c238f2d84f',
 					filename: 'parity'
 				})
 			);
@@ -128,7 +128,7 @@ describe('push-build', () => {
 			.send({
 				secret,
 				sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
-				commit: '8b749367fd5fea897cee98bd892fff1ce90f8260',
+				commit: 'e92e6c4f796f6338b2a99c499a0fe9c238f2d84f',
 				filename: 'parity'
 			})
 		);
@@ -144,7 +144,7 @@ describe('push-build', () => {
 			.send({
 				secret,
 				sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
-				// commit: '8b749367fd5fea897cee98bd892fff1ce90f8260',
+				// commit: 'e92e6c4f796f6338b2a99c499a0fe9c238f2d84f',
 				filename: 'parity'
 			})
 		);
@@ -174,7 +174,7 @@ describe('push-build', () => {
 			.send({
 				secret,
 				sha3: 'a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
-				commit: 'c060d9584dae34e0e215f061bd61b2ebd375956b',
+				commit: 'e92e6c4f796f6338b2a99c499a0fe9c238f2d84f',
 				filename: 'parity'
 			})
 		);
@@ -191,7 +191,7 @@ describe('push-build', () => {
 		// Build registration
 		expect(requests[4].method).to.equal('eth_sendTransaction');
 		expect(requests[4].params).to.deep.equal([{
-			data: '0x793b0efb000000000000000000000000c060d9584dae34e0e215f061bd61b2ebd375956b7838365f36342d756e6b6e6f776e2d6c696e75782d676e750000000000000000a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
+			data: '0x793b0efb000000000000000000000000e92e6c4f796f6338b2a99c499a0fe9c238f2d84f7838365f36342d756e6b6e6f776e2d6c696e75782d676e750000000000000000a00ead491c0e47efe4abefeb27ddc6ed8d1ea4daa43683d8e349e1e7459b74ba',
 			from: '0x0066ac7a4608f350bf9a0323d60dde211dfb27c0',
 			gasPrice,
 			to: '0x0000000000000000bf900003d60dde211dfb0000'

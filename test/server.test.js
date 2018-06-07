@@ -1,6 +1,7 @@
 const chai = require('chai');
 const chaiHttp = require('chai-http');
 const ServerMock = require('mock-http-server');
+const pad = require('@parity/abi/lib/util/pad')
 
 const expect = chai.expect;
 chai.use(chaiHttp);
@@ -9,14 +10,55 @@ const app = require('../server');
 const secret = 'test';
 const gasPrice = '0x4f9aca000';
 
-const server = new ServerMock({ host: 'localhost', port: 8545 });
+const server = new ServerMock({
+	host: 'localhost',
+	port: 8545
+});
 
 describe('push-release', () => {
+	async function pushRelease(commit, network, forkBlock, critical) {
+		const requests = [];
+		server.on({
+			method: 'POST',
+			path: '/',
+			reply: {
+				status: 200,
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: parityRespond(requests, network)
+			}
+		});
+
+		let res = await request(app => app
+			.post(`/push-release/v1.7.13/${commit}`)
+			.type('form')
+			.send({
+				secret
+			})
+		);
+
+		const expectedCritical = critical ? '1' : '0';
+		const expectedForkBlock = pad.padU32(forkBlock);
+
+		expect(res).to.have.status(200);
+		// Register in operations
+		expect(requests[3].method).to.equal('eth_sendTransaction');
+		expect(requests[3].params).to.deep.equal([{
+			data: `0x932ab270000000000000000000000000${commit}${expectedForkBlock}00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000010c00000000000000000000000000000000000000000000000000000000000000000${expectedCritical}`,
+			from: '0x0066ac7a4608f350bf9a0323d60dde211dfb27c0',
+			gasPrice,
+			to: '0x0000000000000000bf900003d60dde211dfb0000'
+		}]);
+	}
+
 	it('should reject invalid secret', async () => {
 		let res = await request(app => app
 			.post('/push-release/v1.9.5/e92e6c4f796f6338b2a99c499a0fe9c238f2d84f')
 			.type('form')
-			.send({ secret: 'xxx' })
+			.send({
+				secret: 'xxx'
+			})
 		);
 
 		expect(res).to.have.status(401);
@@ -28,7 +70,9 @@ describe('push-release', () => {
 			let res = await request(app => app
 				.post(`/push-release/${tag}/e92e6c4f796f6338b2a99c499a0fe9c238f2d84f`)
 				.type('form')
-				.send({ secret })
+				.send({
+					secret
+				})
 			);
 
 			expect(res).to.have.status(202);
@@ -43,7 +87,9 @@ describe('push-release', () => {
 		let res = await request(app => app
 			.post('/push-release/v1.7.13/8b749367')
 			.type('form')
-			.send({ secret })
+			.send({
+				secret
+			})
 		);
 
 		expect(res).to.have.status(400);
@@ -54,32 +100,13 @@ describe('push-release', () => {
 	afterEach(done => server.stop(done));
 
 	it('should push release succesfuly', async () => {
-		const requests = [];
-		server.on({
-			method: 'POST',
-			path: '/',
-			reply: {
-				status: 200,
-				headers: { 'content-type': 'application/json' },
-				body: parityRespond(requests)
-			}
-		});
+		await pushRelease('e92e6c4f796f6338b2a99c499a0fe9c238f2d84f', 'kovan', 6600000, false);
+	});
 
-		let res = await request(app => app
-			.post('/push-release/v1.7.13/e92e6c4f796f6338b2a99c499a0fe9c238f2d84f')
-			.type('form')
-			.send({ secret })
-		);
-
-		expect(res).to.have.status(200);
-		// Register in operations
-		expect(requests[3].method).to.equal('eth_sendTransaction');
-		expect(requests[3].params).to.deep.equal([{
-			data: '0x932ab270000000000000000000000000e92e6c4f796f6338b2a99c499a0fe9c238f2d84f000000000000000000000000000000000000000000000000000000000064b54000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000010c000000000000000000000000000000000000000000000000000000000000000000',
-			from: '0x0066ac7a4608f350bf9a0323d60dde211dfb27c0',
-		gasPrice,
-			to: '0x0000000000000000bf900003d60dde211dfb0000'
-		}]);
+	it('should use network specific critical flag', async () => {
+		const kovanTrueCommit = 'a70eb0b39f9341c8be900ceb0fd2d007cf9acab8';
+		await pushRelease(kovanTrueCommit, 'kovan', 6600000, true);
+		await pushRelease(kovanTrueCommit, 'ropsten', 10, false);
 	});
 });
 
@@ -163,7 +190,9 @@ describe('push-build', () => {
 			path: '/',
 			reply: {
 				status: 200,
-				headers: { 'content-type': 'application/json' },
+				headers: {
+					'content-type': 'application/json'
+				},
 				body: parityRespond(requests)
 			}
 		});
@@ -200,7 +229,7 @@ describe('push-build', () => {
 });
 
 // Overcoming a bug in chai-http: https://github.com/chaijs/chai-http/issues/156
-function request (fn) {
+function request(fn) {
 	return new Promise((resolve, reject) => {
 		return fn(chai.request(app)).end((err, res) => {
 			if (res) {
@@ -212,15 +241,17 @@ function request (fn) {
 	});
 }
 
-function parityRespond (requests) {
+function parityRespond(requests, chain) {
 	return (req) => {
 		requests.push(req.body);
 
 		let result = null;
-		const { method } = req.body;
+		const {
+			method
+		} = req.body;
 
 		if (method === 'parity_chain') {
-			result = 'kovan';
+			result = (chain === undefined) ? 'kovan' : chain;
 		} else if (method === 'parity_registry') {
 			result = '0x0000000000000000000000000000000000001233';
 		} else if (method === 'eth_call') {

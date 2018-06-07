@@ -10,10 +10,7 @@ const app = require('../server');
 const secret = 'test';
 const gasPrice = '0x4f9aca000';
 
-const server = new ServerMock({
-	host: 'localhost',
-	port: 8545
-});
+const server = new ServerMock({ host: 'localhost', port: 8545 });
 
 describe('push-release', () => {
 	async function pushRelease(commit, network, forkBlock, critical) {
@@ -33,9 +30,7 @@ describe('push-release', () => {
 		let res = await request(app => app
 			.post(`/push-release/v1.7.13/${commit}`)
 			.type('form')
-			.send({
-				secret
-			})
+			.send({ secret })
 		);
 
 		const expectedCritical = critical ? '1' : '0';
@@ -56,9 +51,7 @@ describe('push-release', () => {
 		let res = await request(app => app
 			.post('/push-release/v1.9.5/e92e6c4f796f6338b2a99c499a0fe9c238f2d84f')
 			.type('form')
-			.send({
-				secret: 'xxx'
-			})
+			.send({ secret: 'xxx' })
 		);
 
 		expect(res).to.have.status(401);
@@ -70,9 +63,7 @@ describe('push-release', () => {
 			let res = await request(app => app
 				.post(`/push-release/${tag}/e92e6c4f796f6338b2a99c499a0fe9c238f2d84f`)
 				.type('form')
-				.send({
-					secret
-				})
+				.send({ secret })
 			);
 
 			expect(res).to.have.status(202);
@@ -87,9 +78,7 @@ describe('push-release', () => {
 		let res = await request(app => app
 			.post('/push-release/v1.7.13/8b749367')
 			.type('form')
-			.send({
-				secret
-			})
+			.send({ secret })
 		);
 
 		expect(res).to.have.status(400);
@@ -195,9 +184,7 @@ describe('push-build', () => {
 			path: '/',
 			reply: {
 				status: 200,
-				headers: {
-					'content-type': 'application/json'
-				},
+				headers: { 'content-type': 'application/json' },
 				body: parityRespond(requests)
 			}
 		});
@@ -234,7 +221,7 @@ describe('push-build', () => {
 });
 
 // Overcoming a bug in chai-http: https://github.com/chaijs/chai-http/issues/156
-function request(fn) {
+function request (fn) {
 	return new Promise((resolve, reject) => {
 		return fn(chai.request(app)).end((err, res) => {
 			if (res) {
@@ -246,14 +233,12 @@ function request(fn) {
 	});
 }
 
-function parityRespond(requests, chain) {
+function parityRespond (requests, chain) {
 	return (req) => {
 		requests.push(req.body);
 
 		let result = null;
-		const {
-			method
-		} = req.body;
+		const { method } = req.body;
 
 		if (method === 'parity_chain') {
 			result = (chain === undefined) ? 'kovan' : chain;

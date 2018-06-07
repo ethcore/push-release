@@ -108,6 +108,11 @@ describe('push-release', () => {
 		await pushRelease(kovanTrueCommit, 'kovan', 6600000, true);
 		await pushRelease(kovanTrueCommit, 'ropsten', 10, false);
 	});
+
+	it('should be backwards compatible with global critical flag', async () => {
+		const legacyCommit = 'adc3457a893bac241c00e897df702e9bbc1468d9';
+		await pushRelease(legacyCommit, 'kovan', 6600000, false);
+	});
 });
 
 describe('push-build', () => {

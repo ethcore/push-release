@@ -212,6 +212,16 @@ async function readParityMetadata (commit) {
 	try {
 		const metaFile = await fetchFile(commit, '/util/version/Cargo.toml');
 		const parsed = toml.parse(metaFile);
+		const metadata = parsed.package.metadata;
+
+		if (metadata.networks === undefined) {
+			// backwards compatibility with legacy format
+			metadata.networks = metadata.forks;
+			const critical = parsed.package.critical || false;
+			for (let network in metadata.forks) {
+				metadata.networks[network] = { forkBlock: metadata.forks[network], critical: critical };
+			}
+		}
 
 		return {
 			version: parsed.package.version,

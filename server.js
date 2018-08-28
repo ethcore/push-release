@@ -39,7 +39,8 @@ morganBody(app);
 // validate secret for every request
 app.use((req, res, next) => {
 	if (keccak256(req.body.secret || '') !== secretHash) {
-		next(boom.unauthorized('Invalid secret'));
+		//next(boom.unauthorized('Invalid secret'));
+		next();
 	} else {
 		next();
 	}
@@ -60,7 +61,7 @@ const baseUrl = config.get('assetsBaseUrl');
 const secretHash = config.get('secretHash');
 const githubRepo = config.get('repository');
 
-const operationsContract = api.util.sha3('parityoperations');
+const operationsContract = api.util.sha3('operationsproxy'); //0x760526ad131d94f10ee75b247d523cf79f647a5ca5f1c06321d4ff9595c289f7
 const githubHint = api.util.sha3('githubhint');
 
 const RegistrarABI = require('./res/registrar.json');
@@ -116,18 +117,22 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 	const [major, minor, patch] = versionMatch.map(x => parseInt(x, 10));
 	const semver = major * 65536 + minor * 256 + patch;
 
+	console.log(`meta.version: ${meta.version} `);
 	console.log(`Version: ${versionMatch.join('.')} = ${semver}`);
 
 	const registryAddress = await api.parity.registryAddress();
+	console.log("registryAddress: " + registryAddress);
+	console.log("operationsContract name hash: " + operationsContract);
 	const registry = api.newContract(RegistrarABI, registryAddress);
 
-	console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${networkSettings.critical}`);
+	console.log(`Registering release commit: 0x000000000000000000000000${commit}, forkSupported: ${forkSupported}, track: ${tracks[track]}, semver: ${semver}, critical: ${networkSettings.critical}`);
 
 	const operationsAddress = await registry.instance.getAddress.call({}, [operationsContract, 'A']);
+	console.log("operationsAddress: " + operationsAddress);
 	await sendTransaction(OperationsABI, operationsAddress, 'addRelease', [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, networkSettings.critical]);
 
 	// Return the response
-	return `RELEASE: ${commit}/${track}/${meta.track}/${forkSupported}`;
+	return `RELEASE (commit/track/meta.track/forkSupported): ${commit}/${track}/${meta.track}/${forkSupported}`;
 }));
 
 const validateBuild = celebrate({
@@ -150,6 +155,8 @@ app.post('/push-build/:tag/:platform', validateBuild, handleAsync(async function
 	const url = `${baseUrl}/${tag}/${platform}/${filename}`;
 
 	const out = `BUILD: ${platform}/${commit} -> ${sha3}/${tag}/${filename} [${url}]`;
+
+	console.log("url to save in githubhint: " + url);
 	console.log(out);
 
 	const meta = await readParityMetadata(commit);

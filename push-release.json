@@ -26,5 +26,19 @@
 			"NODE_ENV": "kovan",
 			"VERBOSITY": 2
 		}
+	},
+	{
+		"name": "push-release-sokol",
+		"script": "index.js",
+		"log_date_format": "YYYY-MM-DD HH:mm Z",
+		"merge_logs": false,
+		"watch": false,
+		"max_restarts": 10,
+		"exec_interpreter": "node",
+		"exec_mode": "fork_mode",
+		"env": {
+			"NODE_ENV": "sokol",
+			"VERBOSITY": 2
+		}
 	}
 ]

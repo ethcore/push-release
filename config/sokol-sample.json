@@ -1,0 +1,18 @@
+{
+	"http": {
+		"port": "1339"
+	},
+	"rpc": {
+		"port": "8545"
+	},
+	"account": {
+		"address": "0x..",
+		"ACCOUNT_PASSWORD" : null,
+		"gasPrice": "0x4F9ACA000"
+	},
+	"secretHash": "c27d1be51967ab274d1a1d0d35fc1a450b6e3339d1175e920b7244b4b6b04730",
+	"enabledTracks": ["stable", "beta", "nightly", "master", "testing"],
+	"repository": "poanetwork/parity",
+	"assetsBaseUrl": "https://s3.us-east-2.amazonaws.com/poa-builds-parity",
+	"supportedPlatforms": ["x86_64-apple-darwin", "x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]
+}

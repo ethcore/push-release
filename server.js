@@ -251,7 +251,7 @@ function fetchFile (commit, path) {
 
 async function getNetwork () {
 	const n = await api.parity.netChain();
-	const network = (n === 'homestead' || n === 'mainnet' || n === 'foundation' ? 'foundation' : n.indexOf('kovan.json') !== -1 ? 'kovan' : n);
+	const network = (n === 'homestead' || n === 'mainnet' || n === 'foundation' ? 'foundation' : n.indexOf('kovan') !== -1 ? 'kovan' : n);
 	console.log(`On network ${network}`);
 	return network;
 }

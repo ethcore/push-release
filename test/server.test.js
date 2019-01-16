@@ -241,7 +241,7 @@ function parityRespond (requests, chain) {
 		const { method } = req.body;
 
 		if (method === 'parity_chain') {
-			result = (chain === undefined) ? 'kovan' : chain;
+			result = (chain === undefined) ? 'kovan testnet' : chain;
 		} else if (method === 'parity_registry') {
 			result = '0x0000000000000000000000000000000000001233';
 		} else if (method === 'eth_call') {

@@ -13,7 +13,7 @@
 	"enabledTracks": ["stable", "beta", "nightly"],
 	"secretHash": "9c22ff5f21f0b81b113e63f7db6da94fedef11b2119b4088b89664fb9a3cb658",
 	"repository": "paritytech/parity",
-	"assetsBaseUrl": "http://d1h4xl4cr1h0mo.cloudfront.net/ethereum",
+	"assetsBaseUrl": "http://releases.parity.io/ethereum",
 	"supportedPlatforms": ["x86_64-apple-darwin", "x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]
 }
 

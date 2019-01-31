@@ -92,6 +92,12 @@ describe('push-release', () => {
 		await pushRelease('e92e6c4f796f6338b2a99c499a0fe9c238f2d84f', 'kovan', 6600000, false);
 	});
 
+	it('should support mainnet aliases', async () => {
+		await pushRelease('e92e6c4f796f6338b2a99c499a0fe9c238f2d84f', 'mainnet', 4370000, false);
+		await pushRelease('e92e6c4f796f6338b2a99c499a0fe9c238f2d84f', 'ethereum', 4370000, false);
+		await pushRelease('e92e6c4f796f6338b2a99c499a0fe9c238f2d84f', 'foundation', 4370000, false);
+	});
+
 	it('should use network specific critical flag', async () => {
 		const kovanTrueCommit = 'a70eb0b39f9341c8be900ceb0fd2d007cf9acab8';
 		await pushRelease(kovanTrueCommit, 'kovan', 6600000, true);

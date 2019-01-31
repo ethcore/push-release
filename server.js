@@ -250,8 +250,9 @@ function fetchFile (commit, path) {
 }
 
 async function getNetwork () {
+	const mainnets = ['homestead', 'mainnet', 'foundation', 'ethereum'];
 	const n = await api.parity.netChain();
-	const network = (n === 'homestead' || n === 'mainnet' || n === 'foundation' ? 'foundation' : n.indexOf('kovan') !== -1 ? 'kovan' : n);
+	const network = mainnets.indexOf(n) !== -1 ? 'foundation' : n.indexOf('kovan') !== -1 ? 'kovan' : n;
 	console.log(`On network ${network}`);
 	return network;
 }

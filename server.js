@@ -124,10 +124,10 @@ app.post('/push-release/:tag/:commit', validateRelease, handleAsync(async functi
 	console.log(`Registering release: 0x000000000000000000000000${commit}, ${forkSupported}, ${tracks[track]}, ${semver}, ${networkSettings.critical}`);
 
 	const operationsAddress = await registry.instance.getAddress.call({}, [operationsContract, 'A']);
-	await sendTransaction(OperationsABI, operationsAddress, 'addRelease', [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, networkSettings.critical]);
+	const hash = await sendTransaction(OperationsABI, operationsAddress, 'addRelease', [`0x000000000000000000000000${commit}`, forkSupported, tracks[track], semver, networkSettings.critical]);
 
 	// Return the response
-	return `RELEASE: ${commit}/${track}/${meta.track}/${forkSupported}`;
+	return `RELEASE: ${commit}/${track}/${meta.track}/${forkSupported};\ntxhash: ${hash}`;
 }));
 
 const validateBuild = celebrate({
@@ -166,14 +166,14 @@ app.post('/push-build/:tag/:platform', validateBuild, handleAsync(async function
 	console.log(`Registering on GithubHint: ${sha3}, ${url}`);
 
 	const githubHintAddress = await reg.instance.getAddress.call({}, [githubHint, 'A']);
-	await sendTransaction(GitHubHintABI, githubHintAddress, 'hintURL', [`0x${sha3}`, url]);
+	const h1 = await sendTransaction(GitHubHintABI, githubHintAddress, 'hintURL', [`0x${sha3}`, url]);
 
 	console.log(`Registering platform binary: ${commit}, ${platform}, ${sha3}`);
 
 	const operationsAddress = await reg.instance.getAddress.call({}, [operationsContract, 'A']);
-	await sendTransaction(OperationsABI, operationsAddress, 'addChecksum', [`0x000000000000000000000000${commit}`, platform, `0x${sha3}`]);
+	const h2 = await sendTransaction(OperationsABI, operationsAddress, 'addChecksum', [`0x000000000000000000000000${commit}`, platform, `0x${sha3}`]);
 
-	return out;
+	return `${out}\ntxhash1:${h1} [githubhint]\ntxhash2:${h2} [operations]`;
 }));
 
 // make sure that the errors are added at the end

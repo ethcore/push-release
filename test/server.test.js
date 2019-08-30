@@ -38,7 +38,6 @@ describe('push-release', () => {
 
 		expect(res).to.have.status(200);
 		// Register in operations
-		console.log(requests);
 		expect(requests[3].method).to.equal('eth_sendTransaction');
 		expect(requests[3].params).to.deep.equal([{
 			data: `0x932ab270000000000000000000000000${commit}${expectedForkBlock}00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000010c00000000000000000000000000000000000000000000000000000000000000000${expectedCritical}`,
@@ -242,10 +241,18 @@ function request (fn) {
 
 function parityRespond (requests, chain) {
 	return (req) => {
-		requests.push(req.body);
-
 		let result = null;
 		const { method } = req.body;
+
+		if (method === 'net_listening') {
+			return JSON.stringify({
+				jsonrpc: '2.0',
+				id: 1,
+				result
+			});
+		}
+
+		requests.push(req.body);
 
 		if (method === 'parity_chain') {
 			result = (chain === undefined) ? 'kovan testnet' : chain;

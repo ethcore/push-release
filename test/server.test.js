@@ -38,6 +38,7 @@ describe('push-release', () => {
 
 		expect(res).to.have.status(200);
 		// Register in operations
+		console.log(requests);
 		expect(requests[3].method).to.equal('eth_sendTransaction');
 		expect(requests[3].params).to.deep.equal([{
 			data: `0x932ab270000000000000000000000000${commit}${expectedForkBlock}00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000010c00000000000000000000000000000000000000000000000000000000000000000${expectedCritical}`,
